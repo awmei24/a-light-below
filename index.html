@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A Light Below</title>
+<meta name="description" content="A slow, quiet text game about a lamp, a buried city, and the long way up.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body data-lamp="0">
+  <div id="wrap">
+    <aside id="log" aria-live="polite"></aside>
+    <main id="game">
+      <nav id="tabs"></nav>
+      <section id="panel"></section>
+    </main>
+    <aside id="stores"></aside>
+  </div>
+  <div id="modal" hidden></div>
+  <div id="pausecard" data-a="pause" aria-hidden="true">
+    <div>paused</div>
+    <p>press p or click to resume</p>
+  </div>
+  <footer id="foot">
+    <button class="link" id="pause" data-a="pause" title="pause (p)">pause</button>
+    <span class="sep">·</span>
+    <span id="speed"></span>
+    <span class="sep">·</span>
+    <button class="link" data-a="restart">restart</button>
+    <span class="sep">·</span>
+    <span>inspired by <a href="https://github.com/doublespeakgames/adarkroom" target="_blank" rel="noopener">A Dark Room</a></span>
+  </footer>
+  <script src="game.js"></script>
+</body>
+</html>
