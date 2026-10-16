@@ -1,0 +1,184 @@
+:root {
+  --bg: #0b0a09;
+  --fg: #d9cfbd;
+  --dim: #8a8172;
+  --faint: #47413a;
+  --accent: #e0a35a;
+  --danger: #c9705e;
+  --cold: #7fa3b8;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; min-height: 100%; }
+body {
+  display: flex; flex-direction: column; min-height: 100vh; min-height: 100dvh;
+  background: var(--bg); color: var(--fg);
+  font: 16px/1.5 Georgia, 'Times New Roman', serif;
+}
+a { color: var(--dim); }
+
+#wrap {
+  flex: 1 0 auto; width: 100%; max-width: 1040px; margin: 0 auto; padding: 48px 16px 40px;
+  display: grid; grid-template-columns: 220px minmax(0, 520px) 190px; align-items: start; gap: 36px;
+}
+
+h3 { font-weight: normal; font-size: 13px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim); margin: 26px 0 10px; }
+.desc { margin: 0 0 14px; }
+.hint { color: var(--dim); font-size: 14px; margin: 8px 0; }
+.dim { color: var(--dim); }
+.neg { color: var(--danger); }
+.row { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
+
+/* log */
+#log p { margin: 0 0 10px; font-size: 14px; transition: opacity .6s; }
+#log p:nth-child(n+3) { opacity: .7; }
+#log p:nth-child(n+5) { opacity: .45; }
+#log p:nth-child(n+8) { opacity: .25; }
+#log p:nth-child(n+12) { display: none; }
+
+/* tabs */
+#tabs { display: flex; flex-wrap: wrap; gap: 4px 22px; margin-bottom: 22px; min-height: 30px; }
+.tab {
+  background: none; border: 0; border-bottom: 1px solid transparent; padding: 0 0 4px;
+  color: var(--dim); font: inherit; font-size: 18px; cursor: pointer;
+}
+.tab.on, .tab:hover { color: var(--fg); }
+.tab.on { border-bottom-color: var(--fg); }
+
+/* buttons */
+.btn {
+  position: relative; overflow: hidden; min-width: 150px; padding: 7px 14px 8px;
+  background: transparent; color: var(--fg); border: 1px solid var(--fg);
+  font: inherit; cursor: pointer; text-align: center;
+}
+.btn:hover:not(:disabled) { background: rgba(224, 163, 90, .08); }
+.btn:disabled { color: var(--faint); border-color: var(--faint); cursor: default; }
+.btn .cost { display: block; font-size: 12px; color: var(--dim); margin-top: 1px; }
+.btn:disabled .cost { color: var(--faint); }
+.btn .cd { position: absolute; left: 0; bottom: 0; height: 3px; width: 0; background: var(--accent); }
+
+.mini {
+  min-width: 34px; height: 30px; padding: 0 8px; margin-left: 4px;
+  background: transparent; color: var(--fg); border: 1px solid var(--dim); font: inherit; cursor: pointer;
+}
+.mini:disabled { color: var(--faint); border-color: var(--faint); cursor: default; }
+
+.link { background: none; border: 0; padding: 0; color: var(--faint); font: inherit; cursor: pointer; }
+.link:hover { color: var(--dim); }
+
+/* jobs + outfit tables */
+.job, .orow {
+  display: grid; grid-template-columns: 90px 40px 96px 1fr; align-items: center;
+  gap: 8px; padding: 4px 0; border-bottom: 1px solid rgba(255, 255, 255, .04);
+}
+.orow { grid-template-columns: 90px 80px 1fr; }
+.job .je { display: flex; flex-direction: column; padding: 2px 0; font-size: 13px; line-height: 1.4; color: var(--dim); }
+.job .je span { white-space: nowrap; }
+.job .je.idle { opacity: .55; }
+h3 .per { letter-spacing: normal; text-transform: none; color: var(--faint); }
+
+/* right column: stores, gear, tools */
+.box { margin: 0; min-width: 0; border: 1px solid var(--faint); padding: 6px 16px 14px; }
+.box + .box { margin-top: 22px; }
+.box legend { margin-left: -4px; padding: 0 8px; font-size: 13px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim); }
+.store { position: relative; display: flex; justify-content: space-between; padding: 2px 0; }
+.store > span:nth-child(2) { font-variant-numeric: tabular-nums; }
+
+/* income tooltip on store rows */
+.store.has-tip { outline: none; cursor: default; }
+.store.has-tip > span:first-child { border-bottom: 1px dotted var(--faint); }
+.tip {
+  display: none; position: absolute; z-index: 7; top: -10px; right: calc(100% + 26px); width: 190px;
+  padding: 10px 12px; background: var(--bg); border: 1px solid var(--faint);
+  font-size: 13px; color: var(--dim); pointer-events: none;
+}
+.store:hover .tip, .store:focus .tip { display: block; }
+.tip p { display: flex; justify-content: space-between; margin: 0; }
+.tip .total { display: block; color: var(--fg); margin-bottom: 6px; padding-bottom: 6px; border-bottom: 1px solid var(--faint); }
+
+/* map */
+#map {
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: min(13px, 3.1vw); line-height: 1.15; letter-spacing: .28em;
+  white-space: pre; margin: 12px 0; color: var(--faint); user-select: none;
+}
+#map .fl { color: #39342d; }
+#map .me { color: var(--accent); font-weight: bold; }
+#map .home { color: var(--fg); }
+#map .lm { color: var(--cold); }
+#map .used { color: var(--faint); }
+.legend { font-size: 12px; color: var(--dim); }
+.stats { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 14px; }
+.dpad { display: grid; grid-template-columns: repeat(3, 46px); grid-template-rows: repeat(3, 40px); gap: 4px; margin: 12px 0; }
+.dpad .mini { margin: 0; width: 100%; height: 100%; font-size: 18px; }
+
+/* fights */
+.bar { font-size: 13px; color: var(--dim); margin: 6px 0; }
+.bar .track { height: 4px; background: var(--faint); margin-top: 3px; }
+.bar .fill { height: 100%; background: var(--fg); }
+.bar.foe .fill { background: var(--danger); }
+.windup { position: relative; height: 2px; margin-top: 3px; background: rgba(255, 255, 255, .04); }
+.windup .cd { position: absolute; left: 0; top: 0; height: 100%; width: 0; background: var(--danger); opacity: .55; }
+.windup.combo { height: 3px; }
+.flog { margin-top: 8px; }
+.card .flog p { font-size: 14px; color: var(--dim); margin: 2px 0; }
+.flog p:first-child { color: var(--fg); }
+.fight.busy .row { pointer-events: none; }
+
+/* overlays: event, fight and find cards, and the password pop-up */
+#modal, #pwbox {
+  position: fixed; inset: 0; z-index: 10; padding: 16px; background: rgba(5, 4, 3, .82);
+  display: flex; align-items: center; justify-content: center;
+}
+#pwbox { z-index: 15; }
+#modal[hidden], #pwbox[hidden] { display: none; }
+.card { max-width: 480px; width: 100%; background: var(--bg); border: 1px solid var(--faint); padding: 24px 24px 18px; }
+.card h2 { font-weight: normal; font-size: 20px; margin: 0 0 14px; }
+.card p { margin: 0 0 10px; }
+.card .row { flex-direction: column; }
+.card .btn { width: 100%; }
+
+#pw { max-width: 380px; }
+#pw input {
+  display: block; width: 100%; margin: 6px 0 4px; padding: 6px 2px; outline: none;
+  background: transparent; color: var(--fg); border: 0; border-bottom: 1px solid var(--faint); font: inherit;
+}
+#pw input:focus { border-bottom-color: var(--dim); }
+#pw .err { margin: 6px 0 0; font-size: 14px; color: var(--danger); }
+#pw .row, .fight .row { flex-direction: row; margin-top: 16px; }
+#pw .btn, .fight .btn { flex: 1; min-width: 0; }
+
+/* footer */
+footer {
+  position: sticky; bottom: 0; z-index: 5;
+  display: flex; flex-wrap: wrap; justify-content: center; align-items: baseline; gap: 4px 10px;
+  padding: 18px 16px calc(14px + env(safe-area-inset-bottom, 0px));
+  color: var(--faint); font-size: 13px;
+  background: linear-gradient(to bottom, transparent, var(--bg) 45%);
+}
+footer a { color: var(--faint); }
+footer a:hover { color: var(--dim); }
+#pause.on, #testing .on { color: var(--accent); }
+#testing .on { text-decoration: underline; text-underline-offset: 3px; }
+#stages { flex-basis: 100%; display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 12px; color: var(--accent); opacity: .8; }
+#stages:empty { display: none; }
+#stages .link { color: var(--accent); }
+#stages .link:hover { text-decoration: underline; }
+
+#testexit {
+  position: fixed; z-index: 6; top: calc(14px + env(safe-area-inset-top, 0px)); right: 18px;
+  padding: 4px 10px; border: 1px solid var(--accent); background: var(--bg);
+  color: var(--accent); font-size: 13px; opacity: .85;
+}
+#testexit:hover { opacity: 1; color: var(--accent); }
+#testexit[hidden] { display: none; }
+
+@media (max-width: 860px) {
+  #wrap { grid-template-columns: 1fr; gap: 22px; padding-top: 22px; }
+  #game { order: 1; }
+  #stores { order: 2; }
+  #stores .box { columns: 2; column-gap: 24px; }
+  .tip { top: 100%; right: auto; left: 0; }
+  #log { order: 3; }
+  .job { grid-template-columns: 80px 30px 90px 1fr; }
+}

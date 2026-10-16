@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>A Light Below</title>
 <meta name="description" content="A slow, quiet text game about a lamp, a buried city, and the long way up.">
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/effects.css">
 </head>
 <body data-lamp="0">
   <div id="wrap">
@@ -16,20 +17,43 @@
     </main>
     <aside id="stores"></aside>
   </div>
+
   <div id="modal" hidden></div>
-  <div id="pausecard" data-a="pause" aria-hidden="true">
+  <div id="cut" hidden></div>
+  <div id="black"></div>
+  <div id="pausecard" data-a="pause">
     <div>paused</div>
     <p>press p or click to resume</p>
   </div>
-  <footer id="foot">
-    <button class="link" id="pause" data-a="pause" title="pause (p)">pause</button>
-    <span class="sep">·</span>
-    <span id="speed"></span>
-    <span class="sep">·</span>
-    <button class="link" data-a="restart">restart</button>
-    <span class="sep">·</span>
+
+  <button id="testexit" class="link" data-a="testexit" hidden>exit dev mode &times;</button>
+  <div id="pwbox" hidden>
+    <form class="card" id="pw" role="dialog" aria-modal="true" aria-labelledby="pwtitle">
+      <h2 id="pwtitle">dev mode</h2>
+      <p class="dim">enter the password to unlock 10&times; speed and stage skips.</p>
+      <input type="password" placeholder="password" autocomplete="off" aria-label="dev mode password">
+      <p class="err" hidden></p>
+      <div class="row">
+        <button class="btn" type="submit">enter</button>
+        <button class="btn" type="button" data-a="pwclose">cancel</button>
+      </div>
+    </form>
+  </div>
+
+  <footer>
+    <div id="stages"></div>
+    <button class="link" id="pause" data-a="pause" title="pause (p)">pause</button> ·
+    <span id="speed"></span> ·
+    <button class="link" data-a="restart">restart</button> ·
+    <span id="testing"></span> ·
     <span>inspired by <a href="https://github.com/doublespeakgames/adarkroom" target="_blank" rel="noopener">A Dark Room</a></span>
   </footer>
-  <script src="game.js"></script>
+
+  <script src="js/data.js"></script>
+  <script src="js/state.js"></script>
+  <script src="js/world.js"></script>
+  <script src="js/scenes.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/main.js"></script>
 </body>
 </html>
