@@ -26,9 +26,9 @@
     <p>press p or click to resume</p>
   </div>
 
-  <button id="testexit" class="link" data-a="testexit" hidden>exit dev mode &times;</button>
+  <div id="devbar" hidden><span id="devspeed"></span><button class="link" data-a="testexit">exit &times;</button></div>
   <div id="pwbox" hidden>
-    <form class="card" id="pw" role="dialog" aria-modal="true" aria-labelledby="pwtitle">
+    <form class="card pair" id="pw" role="dialog" aria-modal="true" aria-labelledby="pwtitle">
       <h2 id="pwtitle">dev mode</h2>
       <p class="dim">enter the password to unlock 10&times; speed and stage skips.</p>
       <input type="password" placeholder="password" autocomplete="off" aria-label="dev mode password">

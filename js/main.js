@@ -2,6 +2,8 @@
 // Player actions, input and start-up.
 
 const pw = { open: false, err: '', focus: false }; // dev-mode password pop-up
+let asking = null; // { text, a, arg }: a confirmation card waiting on yes / cancel
+const ask = (text, a, arg) => { asking = { text, a, arg }; };
 
 const ACT = {
   tab: id => { S.tab = id; },
@@ -141,17 +143,16 @@ const ACT = {
     store(SPEED_KEY, id);
     if (!pausedAt) startClock();
   },
-  restart: () => {
-    if (!S.flags.won && !confirm('start over from the beginning? your progress will be lost.')) return;
+  restart: (_, sure) => {
+    if (!S.flags.won && !sure) return ask('start over from the beginning? your progress will be lost.', 'restart');
     store(SAVE_KEY, null);
     S = fresh();
     closeCut();
   },
 
-  /* dev mode (speed id 'testing'): stays on until exited; clicking it always returns to 10× */
+  /* dev mode (speed id 'testing' = 10×): unlocked by password, stays on until exited */
   testing: () => {
-    if (unlocked) return ACT.speed('testing');
-    Object.assign(pw, { open: true, err: '', focus: true });
+    if (!unlocked) Object.assign(pw, { open: true, err: '', focus: true });
   },
   pwclose: () => Object.assign(pw, { open: false, err: '' }),
   testexit: () => {
@@ -159,13 +160,16 @@ const ACT = {
     store(UNLOCK_KEY, null);
     if (speed === 'testing') ACT.speed(lastSpeed);
   },
-  stage: id => {
-    if (!unlocked || !STAGES[id] || !confirm('skip to "' + STAGES[id].label + '"? your current progress will be replaced.')) return;
+  stage: (id, sure) => {
+    if (!unlocked || !STAGES[id]) return;
+    if (!sure) return ask('skip to "' + STAGES[id].label + '"? your current progress will be replaced.', 'stage', id);
     jumpTo(id);
   },
+  yes: () => { const q = asking; asking = null; if (q) ACT[q.a](q.arg, true); },
+  no: () => { asking = null; },
 };
 
-const META = ['pause', 'speed', 'restart', 'testing', 'pwclose', 'testexit', 'stage']; // allowed any time
+const META = ['pause', 'speed', 'restart', 'testing', 'pwclose', 'testexit', 'stage', 'yes', 'no']; // allowed any time
 function act(a, arg) {
   if (!ACT[a] || cutAt) return;
   if (!META.includes(a) && (pausedAt || S.flags.won || (S.event && a !== 'choose'))) return;
@@ -210,6 +214,10 @@ document.addEventListener('keydown', ev => {
     if ([' ', 'Enter', 'Escape'].includes(ev.key)) { ev.preventDefault(); cutSkip(); }
     return;
   }
+  // keys on pop-up buttons (data-key): 1, 2, 3, space, enter, esc
+  const name = { ' ': 'space', Enter: 'enter', Escape: 'esc' }[ev.key] || ev.key.toLowerCase();
+  const hit = [...document.querySelectorAll('#modal:not([hidden]) [data-key]')].find(b => b.dataset.key.split(' ').includes(name));
+  if (hit) { ev.preventDefault(); if (!hit.disabled) act(hit.dataset.a, hit.dataset.arg); return; }
   if (ev.key.toLowerCase() === 'p') { ev.preventDefault(); return act('pause'); }
   const dir = S.exp && KEYS[ev.key.length === 1 ? ev.key.toLowerCase() : ev.key];
   if (dir) { ev.preventDefault(); act('move', dir); }

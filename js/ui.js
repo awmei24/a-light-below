@@ -6,11 +6,13 @@ const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;',
 function setHTML(el, h) { if (el._h !== h) { el._h = h; el.innerHTML = h; } }
 
 // Cooldowns aren't baked into the markup; updateCooldowns applies them every frame.
+// o.key: space-separated keys that press the button while it's in a pop-up (the first is shown).
 function btn(a, label, o = {}) {
   const off = o.disabled || (NEEDS_LIGHT.includes(a) && stalled());
   return '<button class="btn" data-a="' + a + '" data-arg="' + esc(o.arg ?? '') + '"' +
     (o.cd ? ' data-cd="' + o.cd + '"' : '') + (off ? ' disabled data-hard="1"' : '') +
-    (o.title ? ' title="' + esc(o.title) + '"' : '') + '>' + esc(label) +
+    (o.title ? ' title="' + esc(o.title) + '"' : '') + (o.key ? ' data-key="' + o.key + '"' : '') + '>' + esc(label) +
+    (o.key ? '<span class="key">' + o.key.split(' ')[0] + '</span>' : '') +
     (o.sub ? '<span class="cost">' + esc(o.sub) + '</span>' : '') + (o.cd ? '<span class="cd"></span>' : '') + '</button>';
 }
 const mini = (a, arg, label, dis) => '<button class="mini" data-a="' + a + '" data-arg="' + arg + '"' + (dis ? ' disabled' : '') + '>' + label + '</button>';
@@ -24,6 +26,21 @@ const paras = lines => lines.map((t, i) => '<p' + stagger(i) + '>' + esc(t) + '<
 // "+2 meat" / "−4 moss" (costs in red), and how long a work cycle takes at this speed.
 const amount = (v, k) => '<span' + (v < 0 ? ' class="neg"' : '') + '>' + (v < 0 ? '−' : '+') + Math.abs(v) + (k ? ' ' + lbl(k) : '') + '</span>';
 const cycle = () => +(10 / rate()).toFixed(1) + 's';
+
+// Lamp fuel. The markup is static so the bar can glide; updateFuel() sets width and text each render.
+const fuel = () => S.flags.lit ? '<div class="fuel"><div class="track"><span></span></div><p class="hint"></p></div>' : '';
+
+function updateFuel() {
+  const el = $('.fuel');
+  if (!el) return;
+  const secs = n => Math.ceil(n / rate()) + 's';
+  const left = S.lamp ? (S.lamp - 1) * 45 + 45 - S.lampClock : 0;
+  el.querySelector('span').style.width = left / 180 * 100 + '%';
+  const p = el.querySelector('p');
+  p.textContent = S.lamp ? 'about ' + secs(left) + ' of light left.'
+    : stalled() ? 'the lamp is out. the warren has stopped.' : 'the lamp is out. the warren stops in ' + secs(DARK_LIMIT - S.darkFor) + '.';
+  p.classList.toggle('neg', !S.lamp);
+}
 
 function tabs() {
   if (S.exp) return [['map', 'the dark']];
@@ -43,7 +60,7 @@ function hollowPanel() {
 
   h += '<div class="row">' + (S.lamp === 0
     ? btn('light', 'light the lamp', { sub: S.flags.lit ? '1 moss' : '', disabled: S.flags.lit && !has({ moss: 1 }) })
-    : btn('feed', 'feed the lamp', { sub: '1 moss', cd: 'feed', disabled: !has({ moss: 1 }) || S.lamp >= 4 })) + '</div>';
+    : btn('feed', 'feed the lamp', { sub: '1 moss', cd: 'feed', disabled: !has({ moss: 1 }) || S.lamp >= 4 })) + '</div>' + fuel();
 
   const builds = k >= 3 ? Object.keys(BUILD).filter(id => BUILD[id].req(S) && !(BUILD[id].max === 1 && S.bld[id])) : [];
   if (builds.length) {
@@ -71,7 +88,7 @@ function warrenPanel() {
     : 'the warren hums with work. children chase each other between the cots.') + '</p>';
   h += '<div class="row">' + btn('gather', 'gather moss', { cd: 'gather' }) +
     (S.flags.keeper >= 3 ? btn('rubble', 'search the rubble', { cd: 'rubble' }) : '') +
-    (S.bld.snare ? btn('snares', 'check snares', { cd: 'snares' }) : '') + '</div>';
+    (S.bld.snare ? btn('snares', 'check snares', { cd: 'snares' }) : '') + '</div>' + fuel();
 
   if (cap() > 0) {
     h += '<h3>people ' + S.pop + ' / ' + cap() + ' <span class="per">· ' + (stalled() ? 'idle in the dark' : 'every ' + cycle()) + '</span></h3>';
@@ -123,7 +140,8 @@ function mapText(rv) {
   return out;
 }
 
-const bar = (name, v, max, k) => '<div class="bar ' + k + '">' + esc(name) + ' ' + Math.max(0, v) + ' / ' + max +
+const barLabel = (name, v, max) => esc(name) + ' ' + Math.max(0, v) + ' / ' + max;
+const bar = (name, v, max, k) => '<div class="bar ' + k + '"><span class="label">' + barLabel(name, v, max) + '</span>' +
   '<div class="track"><div class="fill" style="width:' + clamp(v / max * 100, 0, 100) + '%"></div></div></div>';
 
 function mapPanel() {
@@ -145,14 +163,28 @@ function mapPanel() {
 
 /* ---------- pop-up cards ---------- */
 
+// The fight card is drawn once per fight and then patched in place, so its buttons are never
+// replaced mid-click as the foe attacks.
+function patchFight() {
+  const e = S.exp, f = e.fight, m = $('#modal');
+  m.querySelector('.fight').classList.toggle('busy', !!f.busy);
+  m.querySelector('.bar.you .label').innerHTML = barLabel('you', e.hp, e.maxHp);
+  m.querySelector('.bar.foe .label').innerHTML = barLabel(f.name, f.hp, f.maxHp);
+  m.querySelector('.windup').classList.toggle('combo', f.plan > 1);
+  const eat = m.querySelector('[data-a="eat"]');
+  eat.querySelector('.cost').textContent = e.rations + ' left';
+  eat.dataset.hard = !e.rations || e.hp >= e.maxHp ? '1' : '';
+  setHTML(m.querySelector('.flog'), f.log.map(l => '<p>' + esc(l) + '</p>').join(''));
+}
+
 function fightCard() {
   const e = S.exp, f = e.fight;
   return '<div class="card fight' + (f.busy ? ' busy' : '') + '"><h2>' + esc(f.name) + '</h2>' +
     bar('you', e.hp, e.maxHp, 'you') + bar(f.name, f.hp, f.maxHp, 'foe') +
     '<div class="windup' + (f.plan > 1 ? ' combo' : '') + '" data-cd="foe" data-up="1"><span class="cd"></span></div>' +
-    '<div class="row">' + btn('attack', 'strike', { sub: weapon().name, cd: 'attack' }) +
-    btn('eat', 'eat a ration', { sub: e.rations + ' left', cd: 'eat', disabled: !e.rations || e.hp >= e.maxHp }) +
-    (f.flee ? btn('flee', 'run', { cd: 'flee' }) : '') + '</div>' +
+    '<div class="row">' + btn('attack', 'strike', { sub: weapon().name, cd: 'attack', key: '1 space' }) +
+    btn('eat', 'eat a ration', { sub: e.rations + ' left', cd: 'eat', key: '2', disabled: !e.rations || e.hp >= e.maxHp }) +
+    (f.flee ? btn('flee', 'run', { cd: 'flee', key: '3' }) : '') + '</div>' +
     '<div class="flog">' + f.log.map(l => '<p>' + esc(l) + '</p>').join('') + '</div></div>';
 }
 
@@ -161,7 +193,8 @@ function sceneCard() {
   let i = sc.text.length;
   return '<div class="card reading"><h2>' + esc(sc.title) + '</h2>' + paras(sc.text) +
     (loot.length ? '<p class="dim"' + stagger(i++) + '>you find: ' + loot.map(([k, v]) => v + ' ' + lbl(k)).join(', ') + '</p>' : '') +
-    '<div class="row"' + stagger(i) + '>' + (loot.length ? btn('take', 'take it all') + btn('leave', 'leave it') : btn('leave', 'move on')) + '</div></div>';
+    '<div class="row"' + stagger(i) + '>' + (loot.length ? btn('take', 'take it all', { key: '1 enter' }) + btn('leave', 'leave it', { key: '2 esc' })
+      : btn('leave', 'move on', { key: '1 enter esc' })) + '</div></div>';
 }
 
 // What each job adds to or takes from every resource per cycle: { moss: [[job, workers, amount], ...] }
@@ -192,11 +225,16 @@ function storesPanel() {
     section('tools', Object.keys(BUILD).filter(id => BUILD[id].tool && S.bld[id]).map(id => item(bname(id), BUILD[id].max > 1 ? S.bld[id] : '')).join(''));
 }
 
+function askCard() {
+  return asking ? '<div class="card pair"><p>' + esc(asking.text) + '</p><div class="row">' +
+    btn('yes', 'yes', { key: '1 enter' }) + btn('no', 'cancel', { key: '2 esc' }) + '</div></div>' : '';
+}
+
 function eventCard() {
   const ev = S.event && EVENTS.find(x => x.id === S.event);
   if (!ev) return '';
   return '<div class="card reading"><h2>' + esc(ev.title) + '</h2>' + paras(ev.text) + '<div class="row"' + stagger(ev.text.length) + '>' +
-    ev.opts.map((o, i) => btn('choose', o.label, { arg: i, sub: o.cost ? costStr(o.cost) : '', disabled: o.cost && !has(o.cost) })).join('') + '</div></div>';
+    ev.opts.map((o, i) => btn('choose', o.label, { arg: i, key: String(i + 1), sub: o.cost ? costStr(o.cost) : '', disabled: o.cost && !has(o.cost) })).join('') + '</div></div>';
 }
 
 function footer() {
@@ -204,12 +242,14 @@ function footer() {
   pb.textContent = pausedAt ? 'resume' : 'pause';
   pb.classList.toggle('on', !!pausedAt);
 
-  // One switch that flips between classic and hyper. From testing it returns to the last of the two.
-  const base = speed === 'testing' ? lastSpeed : speed, other = base === 'hyper' ? 'classic' : 'hyper';
-  setHTML($('#speed'), link('speed', speed === 'testing' ? base : other, base, '', SPEEDS[base] + '× speed'));
-  setHTML($('#testing'), link('testing', '', 'dev mode', unlocked ? 'on' : '', unlocked ? SPEEDS.testing + '× speed' : 'password required'));
+  // Every speed you can pick, current one underlined. Dev mode adds 10×.
+  const speeds = unlocked ? ['classic', 'hyper', 'testing'] : ['classic', 'hyper'];
+  const speedName = id => id === 'testing' ? SPEEDS.testing + '×' : id;
+  setHTML($('#speed'), speeds.map(id => link('speed', id, speedName(id), speed === id ? 'on' : '', SPEEDS[id] + '× speed')).join(''));
+  setHTML($('#testing'), unlocked ? '<span class="on">dev mode</span>' : link('testing', '', 'dev mode', '', 'password required'));
   setHTML($('#stages'), unlocked ? '<span>skip to:</span>' + Object.keys(STAGES).map(id => link('stage', id, STAGES[id].label)).join('') : '');
-  $('#testexit').hidden = !unlocked;
+  $('#devbar').hidden = !unlocked;
+  $('#devspeed').textContent = 'dev mode · ' + SPEEDS[speed] + '×';
 
   // Password pop-up (static markup in index.html).
   const pop = $('#pwbox'), input = $('#pw input'), err = $('#pw .err');
@@ -227,11 +267,18 @@ function render() {
   setHTML($('#tabs'), tabs().map(([id, name]) => '<button class="tab' + (S.tab === id ? ' on' : '') + '" data-a="tab" data-arg="' + id + '">' + name + '</button>').join(''));
   setHTML($('#panel'), { map: mapPanel, warren: warrenPanel, passage: passagePanel }[S.tab]?.() ?? hollowPanel());
   setHTML($('#stores'), storesPanel());
-  const e = S.exp, card = eventCard() || (e && e.fight ? fightCard() : e && e.scene ? sceneCard() : '');
-  setHTML($('#modal'), card);
-  $('#modal').hidden = !card;
+  const e = S.exp, top = askCard() || eventCard(), card = top || (e && e.fight ? fightCard() : e && e.scene ? sceneCard() : '');
+  const m = $('#modal'), fight = !top && e && e.fight;
+  if (fight && m._fight === fight) patchFight();
+  else {
+    if (m._fight !== fight) m._h = null; // the cached markup is stale once a fight has been patched
+    setHTML(m, card); m._fight = fight;
+  }
+  m.hidden = !card;
+  $('#modal').classList.toggle('over-map', !!card && !top);
   renderLog();
   fightFx();
+  updateFuel();
   footer();
   updateCooldowns();
 }
@@ -271,6 +318,7 @@ function fightFx() {
     void fill.offsetWidth;
     fill.style.transition = '';
     fill.style.width = clamp(lastFight[k] / max * 100, 0, 100) + '%';
+    b.classList.remove('hit', 'heal'); void b.offsetWidth; // restart the flinch on repeat hits
     b.classList.add(lastFight[k] < was[k] ? 'hit' : 'heal');
   }
 }
