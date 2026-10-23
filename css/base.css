@@ -1,11 +1,13 @@
 :root {
   --bg: #0b0a09;
   --fg: #d9cfbd;
-  --dim: #8a8172;
+  --dim: #9c9282;
   --faint: #47413a;
   --accent: #e0a35a;
   --danger: #c9705e;
   --cold: #7fa3b8;
+  --text: 'EB Garamond', Georgia, 'Times New Roman', serif;   /* body: a book face */
+  --print: 'IM Fell English', Georgia, serif;                  /* headings: old print */
 }
 
 * { box-sizing: border-box; }
@@ -13,7 +15,7 @@ html, body { margin: 0; min-height: 100%; }
 body {
   display: flex; flex-direction: column; min-height: 100vh; min-height: 100dvh;
   background: var(--bg); color: var(--fg);
-  font: 16px/1.5 Georgia, 'Times New Roman', serif;
+  font: 500 18px/1.5 var(--text);
 }
 a { color: var(--dim); }
 
@@ -22,38 +24,47 @@ a { color: var(--dim); }
   display: grid; grid-template-columns: 220px minmax(0, 520px) 190px; align-items: start; gap: 36px;
 }
 
-h3 { font-weight: normal; font-size: 13px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim); margin: 26px 0 10px; }
+h3 { font: 500 15px var(--text); font-variant: small-caps; letter-spacing: .08em; color: var(--dim); margin: 26px 0 10px; }
 .desc { margin: 0 0 14px; }
 .hint { color: var(--dim); font-size: 14px; margin: 8px 0; }
 .dim { color: var(--dim); }
 .neg { color: var(--danger); }
 .row { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
 
-/* log */
-#log p { margin: 0 0 10px; font-size: 14px; transition: opacity .6s; }
+/* log: a journal kept in the margin */
+#log { border-left: 1px solid var(--faint); padding-left: 16px; }
+#log p { margin: 0 0 10px; font-size: 16px; line-height: 1.4; transition: opacity .6s; }
 #log p:nth-child(n+3) { opacity: .7; }
 #log p:nth-child(n+5) { opacity: .45; }
 #log p:nth-child(n+8) { opacity: .25; }
 #log p:nth-child(n+12) { display: none; }
 
 /* tabs */
-#tabs { display: flex; flex-wrap: wrap; gap: 4px 22px; margin-bottom: 22px; min-height: 30px; }
-.tab {
-  background: none; border: 0; border-bottom: 1px solid transparent; padding: 0 0 4px;
-  color: var(--dim); font: inherit; font-size: 18px; cursor: pointer;
-}
+/* tabs: the path from the hollow into the dark, with a spark where you are */
+#tabs { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 0; margin-bottom: 22px; min-height: 30px; }
+.tab { background: none; border: 0; padding: 0; color: var(--dim); font: 20px var(--print); cursor: pointer; }
+.tab:not(:last-child)::after { content: '\2014'; margin: 0 12px; color: var(--faint); }
 .tab.on, .tab:hover { color: var(--fg); }
-.tab.on { border-bottom-color: var(--fg); }
+.tab.on::before {
+  content: ''; display: inline-block; width: 5px; height: 5px; margin: 0 9px 0 0; vertical-align: .2em;
+  border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px 1px var(--accent);
+}
 
 /* buttons */
+/* buttons: a wick down the left edge that catches when you hover */
 .btn {
-  position: relative; overflow: hidden; min-width: 150px; padding: 7px 14px 8px;
-  background: transparent; color: var(--fg); border: 1px solid var(--fg);
-  font: inherit; cursor: pointer; text-align: center;
+  position: relative; overflow: hidden; min-width: 150px; padding: 7px 18px 8px 16px;
+  color: var(--fg); font: inherit; text-align: left; cursor: pointer;
+  border: 0; border-left: 2px solid var(--dim);
+  background: linear-gradient(90deg, rgba(224, 163, 90, .07), transparent 85%);
+  transition: border-color .25s, background .25s, box-shadow .25s;
 }
-.btn:hover:not(:disabled) { background: rgba(224, 163, 90, .08); }
-.btn:disabled { color: var(--faint); border-color: var(--faint); cursor: default; }
-.btn .cost { display: block; font-size: 12px; color: var(--dim); margin-top: 1px; }
+.btn:hover:not(:disabled) {
+  border-left-color: var(--accent); box-shadow: -8px 0 14px -10px var(--accent);
+  background: linear-gradient(90deg, rgba(224, 163, 90, .17), transparent 90%);
+}
+.btn:disabled { color: var(--faint); border-left-color: var(--faint); background: none; cursor: default; }
+.btn .cost { display: block; font-size: 13.5px; color: var(--dim); margin-top: 1px; }
 .btn:disabled .cost { color: var(--faint); }
 .btn .cd { position: absolute; left: 0; bottom: 0; height: 3px; width: 0; background: var(--accent); }
 .btn .key { position: absolute; top: 3px; right: 6px; font-size: 10px; line-height: 1; color: var(--faint); }
@@ -73,7 +84,7 @@ h3 { font-weight: normal; font-size: 13px; letter-spacing: .12em; text-transform
   gap: 8px; padding: 4px 0; border-bottom: 1px solid rgba(255, 255, 255, .04);
 }
 .orow { grid-template-columns: 90px 80px 1fr; }
-.job .je { display: flex; flex-direction: column; padding: 2px 0; font-size: 13px; line-height: 1.4; color: var(--dim); }
+.job .je { display: flex; flex-direction: column; padding: 2px 0; font-size: 14.5px; line-height: 1.4; color: var(--dim); }
 .job .je span { white-space: nowrap; }
 .job .je.idle { opacity: .55; }
 h3 .per { letter-spacing: normal; text-transform: none; color: var(--faint); }
@@ -81,13 +92,17 @@ h3 .per { letter-spacing: normal; text-transform: none; color: var(--faint); }
 /* right column: stores, gear, tools */
 .box { margin: 0; min-width: 0; border: 1px solid var(--faint); padding: 6px 16px 14px; }
 .box + .box { margin-top: 22px; }
-.box legend { margin-left: -4px; padding: 0 8px; font-size: 13px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim); }
+.box legend { margin-left: -4px; padding: 0 8px; font: 500 15px var(--text); font-variant: small-caps; letter-spacing: .08em; color: var(--dim); }
 .store { position: relative; display: flex; justify-content: space-between; padding: 2px 0; }
 .store > span:nth-child(2) { font-variant-numeric: tabular-nums; }
+/* ledger leaders between a name and its number */
+.store > span:first-child { flex: 1; display: flex; align-items: baseline; }
+.store > span:first-child::after { content: ''; flex: 1; margin: 0 8px; border-bottom: 1px dotted var(--faint); }
+.store:has(> span:nth-child(2):empty) > span:first-child::after { display: none; }
 
 /* income tooltip on store rows */
-.store.has-tip { outline: none; cursor: default; }
-.store.has-tip > span:first-child { border-bottom: 1px dotted var(--faint); }
+.store.has-tip { outline: none; }
+.store.has-tip { cursor: help; }
 .tip {
   display: none; position: absolute; z-index: 7; top: -10px; right: calc(100% + 26px); width: 190px;
   padding: 10px 12px; background: var(--bg); border: 1px solid var(--faint);
@@ -97,11 +112,13 @@ h3 .per { letter-spacing: normal; text-transform: none; color: var(--faint); }
 .tip p { display: flex; justify-content: space-between; margin: 0; }
 .tip .total { display: block; color: var(--fg); margin-bottom: 6px; padding-bottom: 6px; border-bottom: 1px solid var(--faint); }
 
-/* lamp fuel */
-.fuel { max-width: 320px; margin: 4px 0 8px; }
-.fuel .track { height: 3px; background: var(--faint); }
-.fuel .track span { display: block; height: 100%; width: 0; background: var(--accent); transition: width 1s linear; }
-.fuel p { margin: 6px 0 0; font-size: 13px; }
+/* hover tooltip for build and craft buttons */
+#tooltip {
+  position: fixed; z-index: 30; max-width: 250px; padding: 9px 12px; pointer-events: none;
+  background: var(--bg); border: 1px solid var(--faint); color: var(--dim);
+  font-size: 15px; line-height: 1.4; white-space: pre-line;
+}
+#tooltip[hidden] { display: none; }
 
 /* map */
 #map {
@@ -142,7 +159,7 @@ h3 .per { letter-spacing: normal; text-transform: none; color: var(--faint); }
 /* encounters in the dark: lighter, and low enough that the map stays in view */
 #modal.over-map { align-items: flex-end; padding-bottom: 90px; background: rgba(5, 4, 3, .4); }
 .card { max-width: 480px; width: 100%; background: var(--bg); border: 1px solid var(--faint); padding: 24px 24px 18px; }
-.card h2 { font-weight: normal; font-size: 20px; margin: 0 0 14px; }
+.card h2 { font: 23px var(--print); margin: 0 0 14px; }
 .card p { margin: 0 0 10px; }
 .card .row { flex-direction: column; }
 .card .btn { width: 100%; }
@@ -167,7 +184,7 @@ footer {
 }
 footer a { color: var(--faint); }
 footer a:hover { color: var(--dim); }
-#pause.on, #testing .on { color: var(--accent); }
+#pause.on, #devlink .on { color: var(--accent); }
 #speed { display: inline-flex; gap: 8px; }
 #speed .on { color: var(--dim); text-decoration: underline; text-underline-offset: 3px; }
 #stages { flex-basis: 100%; display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 12px; color: var(--accent); opacity: .8; }

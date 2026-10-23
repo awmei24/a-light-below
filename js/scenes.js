@@ -129,6 +129,7 @@ function endingScene() {
     { text: 'you swing the pick. the iron screams, then gives.', wait: 1600, fx: dawn(1) },
     { text: 'light pours down the stair.', wait: 2200, fx: dawn(2) },
     { text: 'not lamplight. something wider, and colder, and blue.', wait: 2800, fx: dawn(3) },
+    ...(S.eventsSeen['mem-stair'] ? [{ text: 'on the top step, a lamp of hammered tin. it is still warm.', wait: 2400 }] : []),
     { text: 'below you, the warren stirs. ' + who + ' the long climb toward the sound.', wait: 2400 },
   ], {
     cls: 'ending', keep: true, delay: 1200,

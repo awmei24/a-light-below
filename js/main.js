@@ -1,7 +1,6 @@
 'use strict';
 // Player actions, input and start-up.
 
-const pw = { open: false, err: '', focus: false }; // dev-mode password pop-up
 let asking = null; // { text, a, arg }: a confirmation card waiting on yes / cancel
 const ask = (text, a, arg) => { asking = { text, a, arg }; };
 
@@ -69,7 +68,8 @@ const ACT = {
     const ev = EVENTS.find(x => x.id === S.event), o = ev && ev.opts[+i];
     if (!o || (o.cost && !has(o.cost))) return;
     if (o.cost) pay(o.cost);
-    note(o.fx());
+    const msg = o.fx();
+    if (msg) note(msg);
     S.event = null;
   },
 
@@ -137,8 +137,8 @@ const ACT = {
     else { pausedAt = Date.now(); clearInterval(clock); }
   },
   speed: id => {
-    if (!SPEEDS[id] || id === speed || (id === 'testing' && !unlocked)) return;
-    if (id !== 'testing') lastSpeed = id;
+    if (!SPEEDS[id] || id === speed || (id === 'dev' && !unlocked)) return;
+    if (id !== 'dev') lastSpeed = id;
     speed = id;
     store(SPEED_KEY, id);
     if (!pausedAt) startClock();
@@ -150,46 +150,19 @@ const ACT = {
     closeCut();
   },
 
-  /* dev mode (speed id 'testing' = 10×): unlocked by password, stays on until exited */
-  testing: () => {
-    if (!unlocked) Object.assign(pw, { open: true, err: '', focus: true });
-  },
-  pwclose: () => Object.assign(pw, { open: false, err: '' }),
-  testexit: () => {
-    unlocked = false;
-    store(UNLOCK_KEY, null);
-    if (speed === 'testing') ACT.speed(lastSpeed);
-  },
-  stage: (id, sure) => {
-    if (!unlocked || !STAGES[id]) return;
-    if (!sure) return ask('skip to "' + STAGES[id].label + '"? your current progress will be replaced.', 'stage', id);
-    jumpTo(id);
-  },
   yes: () => { const q = asking; asking = null; if (q) ACT[q.a](q.arg, true); },
   no: () => { asking = null; },
+
+  ...DEV_ACT,
 };
 
-const META = ['pause', 'speed', 'restart', 'testing', 'pwclose', 'testexit', 'stage', 'yes', 'no']; // allowed any time
+const META = ['pause', 'speed', 'restart', 'yes', 'no', ...Object.keys(DEV_ACT)]; // allowed any time
 function act(a, arg) {
   if (!ACT[a] || cutAt) return;
   if (!META.includes(a) && (pausedAt || S.flags.won || (S.event && a !== 'choose'))) return;
   if (NEEDS_LIGHT.includes(a) && stalled()) return;
   ACT[a](arg);
   render(); save();
-}
-
-async function tryUnlock(guess) {
-  try {
-    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(TEST_SALT + guess));
-    const hex = [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
-    if (hex === TEST_HASH) {
-      unlocked = true; pw.open = false;
-      store(UNLOCK_KEY, TEST_HASH);
-      return act('speed', 'testing');
-    }
-    Object.assign(pw, { err: 'not quite.', focus: true });
-  } catch (e) { pw.err = 'can’t check here (needs https).'; }
-  render();
 }
 
 /* ---------- input ---------- */
@@ -223,6 +196,11 @@ document.addEventListener('keydown', ev => {
   if (dir) { ev.preventDefault(); act('move', dir); }
 });
 
+document.addEventListener('mouseover', ev => { const el = ev.target.closest('[data-tip]'); if (el && el !== tipFor) showTip(el); });
+document.addEventListener('mouseout', ev => { if (tipFor && !tipFor.contains(ev.relatedTarget)) hideTip(); });
+document.addEventListener('focusin', ev => { const el = ev.target.closest('[data-tip]'); if (el) showTip(el); });
+document.addEventListener('focusout', hideTip);
+
 window.addEventListener('beforeunload', save);
 
 /* ---------- start ---------- */
@@ -230,6 +208,7 @@ window.addEventListener('beforeunload', save);
 let clock = null;
 function startClock() { clearInterval(clock); clock = setInterval(tick, 1000 / rate()); }
 
+if (S.map) addPlaces(S.map.t); // older saves gain any new places
 render();
 startClock();
 if (S.flags.won) endingScene();

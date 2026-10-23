@@ -3,6 +3,9 @@
 
 const SAVE_KEY = 'a-light-below-v1';
 const LAMP = ['dark', 'guttering', 'dim', 'steady', 'bright'];
+const LAMP_BURN = 45; // ticks before the lamp drops a level
+const DARK_LIMIT = 20; // ticks of darkness before the warren stops working
+const NEEDS_LIGHT = ['rubble', 'snares', 'build', 'craft', 'embark']; // actions blocked once it has
 const RES = ['moss', 'meat', 'hide', 'stone', 'leather', 'ration', 'scrap', 'ore', 'iron'];
 const N = 31, C = 15; // map size and centre
 
@@ -10,28 +13,38 @@ const rnd = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
 const pick = a => a[Math.floor(Math.random() * a.length)];
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
-// tool: listed in the tools box (the others appear as jobs or crafting)
+// tool: listed in the tools box (the others appear as jobs or crafting). note: logged when built. desc: the tooltip
 const BUILD = {
   snare:    { tool: true, max: 10, cost: n => ({ moss: 10 + n * 5 }), req: s => s.flags.keeper >= 3,
-              note: 'a snare of braided root, set across a rat run.' },
+              note: 'a snare of braided root, set across a rat run.',
+              desc: 'catches meat and hide in the far tunnels. the more snares, the bigger each catch.' },
   cot:      { tool: true, max: 20, cost: n => ({ moss: 40 + n * 15 }), req: s => s.flags.keeper >= 3,
-              note: 'a cot of dried moss. room for four more souls.' },
+              note: 'a cot of dried moss. room for four more souls.',
+              desc: 'room for four more people in the warren.' },
   barrow:   { tool: true, max: 1, cost: () => ({ moss: 30 }), req: s => s.flags.keeper >= 3,
-              note: 'a barrow. more moss can be hauled at once.' },
+              note: 'a barrow. more moss can be hauled at once.',
+              desc: 'gather twice as much moss each time.' },
   den:      { label: "trappers' den", max: 1, cost: () => ({ moss: 80, hide: 5 }), req: s => (s.bld.snare || 0) >= 2,
-              note: 'the den is ready. trappers can work the far tunnels.' },
+              note: 'the den is ready. trappers can work the far tunnels.',
+              desc: 'lets people work as trappers, bringing in meat and hide.' },
   rack:     { label: 'curing rack', max: 1, cost: () => ({ moss: 60, meat: 5 }), req: s => s.seen.meat,
-              note: 'smoke curls around the curing rack. meat will keep now.' },
+              note: 'smoke curls around the curing rack. meat will keep now.',
+              desc: 'lets people cure meat into rations for the dark.' },
   quarry:   { max: 1, cost: () => ({ moss: 100 }), req: s => s.pop >= 1,
-              note: 'a quarry face is cut into the warren wall.' },
+              note: 'a quarry face is cut into the warren wall.',
+              desc: 'lets people cut stone from the warren wall.' },
   tannery:  { max: 1, cost: () => ({ moss: 120, stone: 20 }), req: s => s.seen.hide && s.seen.stone,
-              note: 'the tannery stinks, but hide becomes leather.' },
+              note: 'the tannery stinks, but hide becomes leather.',
+              desc: 'lets people tan hide into leather.' },
   workshop: { max: 1, cost: () => ({ moss: 150, stone: 40, leather: 10 }), req: s => s.seen.leather,
-              note: 'the keeper sets up a workshop. she can make real tools now.' },
+              note: 'the keeper sets up a workshop. she can make real tools now.',
+              desc: 'the keeper can craft tools and gear. opens the way into the dark.' },
   mine:     { max: 1, cost: () => ({ moss: 120, stone: 40, ration: 5 }), req: s => s.flags.mine,
-              note: 'a crew is sent out to work the ore seam.' },
+              note: 'a crew is sent out to work the ore seam.',
+              desc: 'lets people mine ore. miners eat a ration each cycle.' },
   smelter:  { max: 1, cost: () => ({ moss: 200, stone: 80, leather: 10 }), req: s => s.seen.ore,
-              note: 'the smelter roars. the warren is warmer than it has ever been.' },
+              note: 'the smelter roars. the warren is warmer than it has ever been.',
+              desc: 'lets people smelt ore into iron.' },
 };
 
 const JOBS = {
@@ -81,10 +94,14 @@ const BOSSES = {
   warden:  { name: 'warden', hp: 45, dmg: 5, acc: .7, spd: 2.2, verb: 'strikes',
              combo: { hits: 3, gap: .45, chance: .3, tell: 'the warden draws back, every limb at once.' } },
 };
+// Places in the dark: [tile, how many, min distance, max distance] from the warren.
+const PLACES = [['X', 1, 14, 16], ['V', 1, 5, 8], ['S', 2, 8, 13], ['N', 2, 6, 12], ['M', 2, 4, 10], ['C', 5, 4, 13], ['H', 10, 2, 12],
+  ['L', 1, 6, 11], ['R', 2, 5, 12], ['K', 1, 10, 14]];
+
 const EAT_CD = 4000, FLEE_CD = 2000;
 const CISTERN_COST = { rations: 5, water: 10 }; // dug on an empty map tile, paid from what you carry
 
-// start: runs as the event card appears
+// start: runs as the event card appears. memory: one of the keeper's memories, shown as soon as avail is true
 const EVENTS = [
   { id: 'voice', once: true, avail: s => s.flags.passage && s.pop >= 2, title: 'a voice from the dark',
     text: ['a digger stumbles back from the tunnels, pale and shaking.',
@@ -124,26 +141,57 @@ const EVENTS = [
           setPop(S.pop - 1); return 'the poultice is not enough. by morning, the digger is gone.';
         } },
       { label: 'keep the others away', fx: () => { setPop(S.pop - 1); return 'the digger dies alone in the night. the warren is quieter.'; } }] },
-];
+  // the lamp's reach: a bright lamp is seen from far away, by people and by other things
+  { id: 'travellers', avail: s => s.lamp >= 3 && s.pop >= 2 && s.pop < cap(), title: 'a band of travellers',
+    text: ['ragged figures stand at the edge of the light, shielding their eyes.', '"we saw your lamp from three tunnels away," one says. "we followed it for days."'],
+    opts: [
+      { label: 'take them in', fx: () => { const n = Math.min(cap() - S.pop, rnd(2, 4)); S.pop += n; return n + ' travellers find a place among the cots.'; } },
+      { label: 'turn them away', fx: () => 'they go back into the dark without a word.' }] },
+  { id: 'drawn', avail: s => s.lamp >= 4 && s.pop >= 3, title: 'drawn to the light',
+    text: ['the bright lamp has been seen. something pale and many-legged gathers at the edge of the light.', 'more come every minute.'],
+    opts: [
+      { label: 'shade the lamp', fx: () => { S.lamp--; return 'you bank the flame. in the dimmer light, the crawling things lose interest.'; } },
+      { label: 'drive them off with torches', cost: { moss: 30 }, fx: () => { add('hide', 3); return 'burning moss sends them scattering. they leave a few husks behind.'; } },
+      { label: 'let them come', fx: () => { const l = Math.ceil((S.res.meat || 0) * 0.4); S.res.meat = (S.res.meat || 0) - l; return 'they swarm the stores in the night. ' + l + ' meat is gone by morning.'; } }] },
+  { id: 'flood', avail: s => s.pop >= 4, title: 'rising water',
+    text: ['water wells up through the warren floor, black and cold.', 'it is rising toward the stores.'],
+    opts: [
+      { label: 'dig a channel', cost: { stone: 15 }, fx: () => 'the water drains off down a new channel into the dark.' },
+      { label: 'move the stores up', fx: () => {
+          const m = Math.floor((S.res.moss || 0) * 0.15), f = Math.floor((S.res.meat || 0) * 0.15);
+          S.res.moss -= m; S.res.meat = (S.res.meat || 0) - f;
+          return 'you save what you can. ' + m + ' moss and ' + f + ' meat are soaked through.';
+        } }] },
+  { id: 'cough', avail: s => s.pop >= 6, title: 'a child\u2019s cough',
+    text: ['a child has been coughing for three nights.', 'the sound carries through the whole warren.'],
+    opts: [
+      { label: 'give her rations', cost: { ration: 3 }, fx: () => 'with food in her, the child sleeps through the night.' },
+      { label: 'ask the keeper', cost: { moss: 20, hide: 5 }, fx: () => 'the keeper brews something bitter. by morning the cough is gone.' },
+      { label: 'wait it out', fx: () => {
+          if (Math.random() < .6) return 'the cough eases on its own.';
+          setPop(S.pop - 1); return 'the coughing stops in the night. the warren is quieter.';
+        } }] },
+  { id: 'traders', avail: s => s.flags.passage && (s.res.leather || 0) >= 15, title: 'lights in the tunnel',
+    text: ['a line of small lamps bobs toward the warren.', 'traders, from a warren further down. they have iron, and they are hungry.'],
+    opts: [
+      { label: 'leather for iron', cost: { leather: 15 }, fx: () => { add('iron', 6); return 'the traders leave 6 iron and take the leather with them.'; } },
+      { label: 'meat for rations', cost: { meat: 20 }, fx: () => { add('ration', 8); return 'they pack the meat in salt and leave 8 rations behind.'; } },
+      { label: 'send them on', fx: () => 'their lamps bob away into the dark.' }] },
 
-// Testing-mode starting points.
-const LATE_BLD = { snare: 8, cot: 7, barrow: 1, den: 1, rack: 1, quarry: 1, tannery: 1, workshop: 1, mine: 1, smelter: 1 };
-const LATE_JOBS = { trapper: 5, quarrier: 3, curer: 5, tanner: 4, miner: 3, smelter: 3 };
-const STAGES = {
-  keeper: { label: 'the keeper', t: 80, bld: {}, pop: 0, jobs: {}, gear: [], res: { moss: 150 } },
-  warren: { label: 'the warren', t: 600,
-    bld: { snare: 4, cot: 3, barrow: 1, den: 1, rack: 1, quarry: 1 }, pop: 10,
-    jobs: { trapper: 3, quarrier: 2, curer: 2 }, gear: [],
-    res: { moss: 250, meat: 30, hide: 25, stone: 40, ration: 10, scrap: 4 } },
-  passage: { label: 'the passage', t: 1200, passage: true,
-    bld: { snare: 6, cot: 5, barrow: 1, den: 1, rack: 1, quarry: 1, tannery: 1, workshop: 1 }, pop: 18,
-    jobs: { trapper: 4, quarrier: 3, curer: 4, tanner: 3 }, gear: ['waterskin', 'pack', 'spear'],
-    res: { moss: 300, meat: 40, hide: 40, stone: 80, leather: 30, ration: 40, scrap: 12 } },
-  iron: { label: 'iron', t: 2000, passage: true, mine: true,
-    bld: LATE_BLD, pop: 26, jobs: LATE_JOBS, gear: ['waterskin', 'pack', 'spear', 'wrap', 'lantern', 'blade'],
-    res: { moss: 400, meat: 50, hide: 40, stone: 100, leather: 60, ration: 50, scrap: 30, ore: 25, iron: 30 } },
-  stair: { label: 'the stair', t: 2800, passage: true, mine: true, stair: true,
-    bld: LATE_BLD, pop: 28, jobs: LATE_JOBS,
-    gear: ['waterskin', 'pack', 'spear', 'wrap', 'lantern', 'blade', 'plate', 'cask', 'frame', 'pick'],
-    res: { moss: 400, meat: 50, hide: 40, stone: 100, leather: 40, ration: 80, scrap: 30, ore: 20, iron: 20 } },
-};
+  // the keeper's memories: shown once each, as soon as their moment comes
+  { id: 'mem-lamps', memory: true, avail: s => s.flags.keeper >= 3 && Object.keys(s.bld).length > 0, title: 'the keeper remembers',
+    text: ['"i made lamps, once," she says, turning a scrap of root in her fingers.', '"the whole city ran on them. ten thousand wicks, and a keeper for every street."'],
+    opts: [{ label: 'listen', fx: () => null }] },
+  { id: 'mem-voices', memory: true, avail: s => s.pop >= 8, title: 'the keeper remembers',
+    text: ['she sits a long time, listening to the warren.', '"the city had a sound," she says. "voices, carts, water in the pipes. this is the first time i have heard it since."'],
+    opts: [{ label: 'listen', fx: () => null }] },
+  { id: 'mem-fall', memory: true, avail: s => s.stats.steps > 0 && !s.exp, title: 'the keeper remembers',
+    text: ['she watches you shake the dust of the dark from your clothes.', '"the lights went out street by street," she says. "we told ourselves the dark would stop at the next corner. it never did."'],
+    opts: [{ label: 'listen', fx: () => null }] },
+  { id: 'mem-ore', memory: true, avail: s => s.flags.mine && !s.exp, title: 'the keeper remembers',
+    text: ['"ore," she says, and almost smiles.', '"my daughter worked the seams. she could find iron by the taste of the water."'],
+    opts: [{ label: 'listen', fx: () => null }] },
+  { id: 'mem-stair', memory: true, avail: s => s.gear.pick, title: 'the keeper remembers',
+    text: ['she runs a thumb along the edge of the pick.', '"when the last lamp failed, my daughter went up the stair. she said she would send light back down."', '"i never saw it. maybe you will."'],
+    opts: [{ label: 'listen', fx: () => null }] },
+];

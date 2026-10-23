@@ -7,11 +7,12 @@ function setHTML(el, h) { if (el._h !== h) { el._h = h; el.innerHTML = h; } }
 
 // Cooldowns aren't baked into the markup; updateCooldowns applies them every frame.
 // o.key: space-separated keys that press the button while it's in a pop-up (the first is shown).
+// o.tip: text for the hover tooltip (line breaks allowed).
 function btn(a, label, o = {}) {
   const off = o.disabled || (NEEDS_LIGHT.includes(a) && stalled());
   return '<button class="btn" data-a="' + a + '" data-arg="' + esc(o.arg ?? '') + '"' +
     (o.cd ? ' data-cd="' + o.cd + '"' : '') + (off ? ' disabled data-hard="1"' : '') +
-    (o.title ? ' title="' + esc(o.title) + '"' : '') + (o.key ? ' data-key="' + o.key + '"' : '') + '>' + esc(label) +
+    (o.tip ? ' data-tip="' + esc(o.tip) + '"' : '') + (o.key ? ' data-key="' + o.key + '"' : '') + '>' + esc(label) +
     (o.key ? '<span class="key">' + o.key.split(' ')[0] + '</span>' : '') +
     (o.sub ? '<span class="cost">' + esc(o.sub) + '</span>' : '') + (o.cd ? '<span class="cd"></span>' : '') + '</button>';
 }
@@ -27,21 +28,6 @@ const paras = lines => lines.map((t, i) => '<p' + stagger(i) + '>' + esc(t) + '<
 const amount = (v, k) => '<span' + (v < 0 ? ' class="neg"' : '') + '>' + (v < 0 ? '−' : '+') + Math.abs(v) + (k ? ' ' + lbl(k) : '') + '</span>';
 const cycle = () => +(10 / rate()).toFixed(1) + 's';
 
-// Lamp fuel. The markup is static so the bar can glide; updateFuel() sets width and text each render.
-const fuel = () => S.flags.lit ? '<div class="fuel"><div class="track"><span></span></div><p class="hint"></p></div>' : '';
-
-function updateFuel() {
-  const el = $('.fuel');
-  if (!el) return;
-  const secs = n => Math.ceil(n / rate()) + 's';
-  const left = S.lamp ? (S.lamp - 1) * 45 + 45 - S.lampClock : 0;
-  el.querySelector('span').style.width = left / 180 * 100 + '%';
-  const p = el.querySelector('p');
-  p.textContent = S.lamp ? 'about ' + secs(left) + ' of light left.'
-    : stalled() ? 'the lamp is out. the warren has stopped.' : 'the lamp is out. the warren stops in ' + secs(DARK_LIMIT - S.darkFor) + '.';
-  p.classList.toggle('neg', !S.lamp);
-}
-
 function tabs() {
   if (S.exp) return [['map', 'the dark']];
   const t = [['hollow', S.lamp > 0 ? 'a lamplit hollow' : 'a dark hollow']];
@@ -53,20 +39,21 @@ function tabs() {
 
 function hollowPanel() {
   const k = S.flags.keeper;
-  let h = '<p class="desc">' + (S.lamp ? 'the lamp is ' + LAMP[S.lamp] + '.'
+  let h = '<p class="desc">' + (S.lamp ? 'the lamp is ' + LAMP[S.lamp] + '.' + (S.lamp >= 3 ? ' its light reaches far down the tunnels.' : '')
     : S.flags.lit ? 'the lamp is out. it is cold, and very dark.' : 'it is dark. you cannot see your own hands.') + '</p>';
   if (k) h += '<p class="desc">' + ['', 'a stranger huddles near the lamp, shaking.', 'the stranger sits close to the lamp, watching it.',
     'the keeper sits by the lamp, sorting scraps of root and stone.'][k] + '</p>';
 
   h += '<div class="row">' + (S.lamp === 0
     ? btn('light', 'light the lamp', { sub: S.flags.lit ? '1 moss' : '', disabled: S.flags.lit && !has({ moss: 1 }) })
-    : btn('feed', 'feed the lamp', { sub: '1 moss', cd: 'feed', disabled: !has({ moss: 1 }) || S.lamp >= 4 })) + '</div>' + fuel();
+    : btn('feed', 'feed the lamp', { sub: '1 moss', cd: 'feed', disabled: !has({ moss: 1 }) || S.lamp >= 4 })) + '</div>';
 
   const builds = k >= 3 ? Object.keys(BUILD).filter(id => BUILD[id].req(S) && !(BUILD[id].max === 1 && S.bld[id])) : [];
   if (builds.length) {
     h += '<h3>build</h3><div class="row">' + builds.map(id => {
       const b = BUILD[id], n = S.bld[id] || 0, maxed = n >= b.max, c = b.cost(n);
-      return btn('build', bname(id), { arg: id, sub: maxed ? 'no more room' : costStr(c), disabled: maxed || !has(c) });
+      const tip = b.desc + (b.max > 1 ? '\n' + n + ' of ' + b.max + ' built' : '');
+      return btn('build', bname(id), { arg: id, tip, sub: maxed ? 'no more room' : costStr(c), disabled: maxed || !has(c) });
     }).join('') + '</div>';
   }
 
@@ -76,7 +63,7 @@ function hollowPanel() {
   }) : [];
   if (crafts.length) {
     h += '<h3>craft</h3><div class="row">' + crafts.map(id =>
-      btn('craft', cname(id), { arg: id, sub: costStr(CRAFT[id].cost), title: CRAFT[id].desc, disabled: !has(CRAFT[id].cost) })).join('') + '</div>';
+      btn('craft', cname(id), { arg: id, sub: costStr(CRAFT[id].cost), tip: CRAFT[id].desc, disabled: !has(CRAFT[id].cost) })).join('') + '</div>';
   }
   return h;
 }
@@ -88,7 +75,7 @@ function warrenPanel() {
     : 'the warren hums with work. children chase each other between the cots.') + '</p>';
   h += '<div class="row">' + btn('gather', 'gather moss', { cd: 'gather' }) +
     (S.flags.keeper >= 3 ? btn('rubble', 'search the rubble', { cd: 'rubble' }) : '') +
-    (S.bld.snare ? btn('snares', 'check snares', { cd: 'snares' }) : '') + '</div>' + fuel();
+    (S.bld.snare ? btn('snares', 'check snares', { cd: 'snares' }) : '') + '</div>';
 
   if (cap() > 0) {
     h += '<h3>people ' + S.pop + ' / ' + cap() + ' <span class="per">· ' + (stalled() ? 'idle in the dark' : 'every ' + cycle()) + '</span></h3>';
@@ -157,7 +144,7 @@ function mapPanel() {
     '<div class="row">' + btn('eat', 'eat a ration', { sub: '+8 health', disabled: !e.rations || e.hp >= e.maxHp }) +
     (canDig() ? btn('cistern', 'dig a cistern', { sub: costStr(CISTERN_COST), disabled: !canAffordDig() }) : '') + '</div>' +
     (carried.length ? '<p class="dim">carrying: ' + carried.map(([k, v]) => v + ' ' + lbl(k)).join(', ') + '</p>' : '') +
-    '<p class="legend">@ you · W warren · H house · C cistern · S station · N nest · M camp · V ore · X stair' +
+    '<p class="legend">@ you · W warren · H house · C cistern · S station · N nest · M camp · V ore · L library · R shrine · K vault · X stair' +
     '<br>arrow keys or WASD to walk. return to W to bring your finds home.</p>';
 }
 
@@ -222,7 +209,7 @@ function storesPanel() {
   const f = flows();
   return section('stores', RES.filter(k => S.seen[k]).map(k => item(lbl(k), Math.floor(S.res[k] || 0), f[k] ? incomeTip(f[k]) : '')).join('')) +
     section('gear', Object.keys(CRAFT).filter(id => S.gear[id]).map(id => item(cname(id))).join('')) +
-    section('tools', Object.keys(BUILD).filter(id => BUILD[id].tool && S.bld[id]).map(id => item(bname(id), BUILD[id].max > 1 ? S.bld[id] : '')).join(''));
+    section('tools', Object.keys(BUILD).filter(id => BUILD[id].tool && S.bld[id]).map(id => item(bname(id), BUILD[id].max > 1 ? S.bld[id] + ' / ' + BUILD[id].max : '')).join(''));
 }
 
 function askCard() {
@@ -243,10 +230,10 @@ function footer() {
   pb.classList.toggle('on', !!pausedAt);
 
   // Every speed you can pick, current one underlined. Dev mode adds 10×.
-  const speeds = unlocked ? ['classic', 'hyper', 'testing'] : ['classic', 'hyper'];
-  const speedName = id => id === 'testing' ? SPEEDS.testing + '×' : id;
+  const speeds = unlocked ? ['classic', 'hyper', 'dev'] : ['classic', 'hyper'];
+  const speedName = id => id === 'dev' ? SPEEDS.dev + '×' : id;
   setHTML($('#speed'), speeds.map(id => link('speed', id, speedName(id), speed === id ? 'on' : '', SPEEDS[id] + '× speed')).join(''));
-  setHTML($('#testing'), unlocked ? '<span class="on">dev mode</span>' : link('testing', '', 'dev mode', '', 'password required'));
+  setHTML($('#devlink'), unlocked ? '<span class="on">dev mode</span>' : link('dev', '', 'dev mode', '', 'password required'));
   setHTML($('#stages'), unlocked ? '<span>skip to:</span>' + Object.keys(STAGES).map(id => link('stage', id, STAGES[id].label)).join('') : '');
   $('#devbar').hidden = !unlocked;
   $('#devspeed').textContent = 'dev mode · ' + SPEEDS[speed] + '×';
@@ -275,12 +262,31 @@ function render() {
     setHTML(m, card); m._fight = fight;
   }
   m.hidden = !card;
-  $('#modal').classList.toggle('over-map', !!card && !top);
+  m.classList.toggle('over-map', !!card && !top);
   renderLog();
   fightFx();
-  updateFuel();
   footer();
   updateCooldowns();
+  refreshTip();
+}
+
+// Hover tooltips for anything with data-tip. One floating box, placed under (or above) the element.
+let tipFor = null;
+function showTip(el) {
+  const box = $('#tooltip');
+  tipFor = el;
+  box.textContent = el.dataset.tip;
+  box.hidden = false;
+  const r = el.getBoundingClientRect(), w = box.offsetWidth, h = box.offsetHeight;
+  box.style.left = clamp(r.left, 8, innerWidth - w - 8) + 'px';
+  box.style.top = (r.bottom + h + 12 < innerHeight ? r.bottom + 8 : r.top - h - 8) + 'px';
+}
+function hideTip() { tipFor = null; $('#tooltip').hidden = true; }
+// after a redraw the hovered button may have been replaced: re-point at the new one, or hide
+function refreshTip() {
+  if (!tipFor || document.contains(tipFor)) return;
+  const fresh = [...document.querySelectorAll('[data-tip]')].find(el => el.matches(':hover'));
+  fresh ? showTip(fresh) : hideTip();
 }
 
 // New log lines are prepended in place so only they animate.

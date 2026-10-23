@@ -5,13 +5,16 @@ function tick() {
   if (S.flags.won || cutAt) return;
   S.t++;
 
-  if (S.lamp > 0 && ++S.lampClock >= 45) {
+  if (S.lamp > 0 && ++S.lampClock >= LAMP_BURN) {
     S.lampClock = 0; S.lamp--;
     if (S.lamp === 0 && !S.exp) blackout();
     note(['the lamp goes out. the dark rushes back in.', 'the lamp gutters.', 'the lamp is dimming.', 'the lamp burns steady.'][S.lamp]);
   }
-  if (S.flags.lit && S.lamp === 0 && ++S.darkFor === DARK_LIMIT) {
-    note('in the dark, the warren falls still. no one will work until the lamp is lit.');
+  if (S.lamp === 1 && S.lampClock === LAMP_BURN - 15) note('the flame shrinks to a bead. it will not last much longer.');
+  if (S.flags.lit && S.lamp === 0) {
+    S.darkFor++;
+    if (S.darkFor === DARK_LIMIT / 2) note('people murmur in the dark. they will not work much longer without light.');
+    if (S.darkFor === DARK_LIMIT) note('in the dark, the warren falls still. no one will work until the lamp is lit.');
   }
 
   if (S.flags.lit && !S.flags.warren && S.t - S.litAt >= 6) {
@@ -40,7 +43,8 @@ function tick() {
 
   if (++S.incomeClock >= 10) { S.incomeClock = 0; income(); }
 
-  if (S.pop < cap() && S.lamp >= 1 && !S.event && ++S.popClock >= S.popNext) {
+  // newcomers follow the light, and come twice as fast when the lamp is steady or bright
+  if (S.pop < cap() && S.lamp >= 1 && !S.event && (S.popClock += S.lamp >= 3 ? 2 : 1) >= S.popNext) {
     S.popClock = 0; S.popNext = rnd(25, 50);
     const n = Math.min(cap() - S.pop, rnd(1, 3));
     S.pop += n;
@@ -48,9 +52,12 @@ function tick() {
                  : pick(['a family of {n} climbs down from a collapsed stair.', '{n} people come out of the tunnels, blinking at the light.']).replace('{n}', n));
   }
 
+  const memory = !S.event && !S.exp && EVENTS.find(e => e.memory && !S.eventsSeen[e.id] && e.avail(S));
+  if (memory) { S.event = memory.id; S.eventsSeen[memory.id] = true; }
+
   if (S.pop >= 1 && !S.event && !S.exp && ++S.eventClock >= S.eventNext) {
     S.eventClock = 0; S.eventNext = rnd(120, 240);
-    const pool = EVENTS.filter(e => !(e.once && S.eventsSeen[e.id]) && e.avail(S));
+    const pool = EVENTS.filter(e => !e.memory && !(e.once && S.eventsSeen[e.id]) && e.avail(S));
     const ev = pool.find(e => e.once) || (pool.length && pick(pool));
     if (ev) { S.event = ev.id; S.eventsSeen[ev.id] = true; if (ev.start) ev.start(); }
   }
@@ -75,15 +82,19 @@ function genMap() {
   const t = [], seen = [];
   for (let y = 0; y < N; y++) { t.push(Array(N).fill('.')); seen.push(Array(N).fill(0)); }
   t[C][C] = 'W';
-  const place = (ch, count, dmin, dmax) => {
-    for (let tries = 0; count > 0 && tries < 5000; tries++) {
-      const x = rnd(0, N - 1), y = rnd(0, N - 1), d = Math.abs(x - C) + Math.abs(y - C);
-      if (d >= dmin && d <= dmax && t[y][x] === '.') { t[y][x] = ch; count--; }
-    }
-  };
-  place('X', 1, 14, 16); place('V', 1, 5, 8); place('S', 2, 8, 13); place('N', 2, 6, 12);
-  place('M', 2, 4, 10); place('C', 5, 4, 13); place('H', 10, 2, 12);
+  addPlaces(t);
   return { t, seen, used: [] };
+}
+
+// Scatter each kind of place the map doesn't have yet, so older saved maps gain new ones.
+function addPlaces(t) {
+  for (const [ch, count, dmin, dmax] of PLACES) {
+    if (t.some(row => row.includes(ch))) continue;
+    for (let left = count, tries = 0; left > 0 && tries < 5000; tries++) {
+      const x = rnd(0, N - 1), y = rnd(0, N - 1), d = Math.abs(x - C) + Math.abs(y - C);
+      if (d >= dmin && d <= dmax && t[y][x] === '.') { t[y][x] = ch; left--; }
+    }
+  }
 }
 
 function reveal(x, y, r) {
@@ -157,6 +168,23 @@ function enterPlace(t, key) {
   if (t === 'V') {
     markUsed(key); S.flags.mine = true;
     return scene('an ore seam', ['a seam of rust-red ore runs through the tunnel wall, glinting in the light.', 'the keeper will want to hear about this.'], { ore: rnd(4, 8) });
+  }
+  if (t === 'L') {
+    markUsed(key);
+    // the old city map shows where every cistern and shrine is
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if ('CR'.includes(S.map.t[y][x])) reveal(x, y, 1);
+    return scene('a drowned library', ['shelves of swollen books stand in knee-deep water.',
+      'pinned high on the wall, above the waterline, is a map of the city\u2019s wells and shrines. you mark them in your memory.'], { scrap: rnd(2, 5), leather: rnd(2, 4) });
+  }
+  if (t === 'R') {
+    e.hp = e.maxHp;
+    return scene('a wayside shrine', ['in a niche of black stone, a wick is still burning. no one remembers who keeps it lit.', 'you sit by it a while. your wounds stop aching.']);
+  }
+  if (t === 'K') {
+    if (!S.gear.pick) return scene('a sealed vault', ['an iron door is set into the rock, its seams fused shut.', 'something heavy could break it. a pick, maybe.']);
+    markUsed(key);
+    return scene('a sealed vault', ['the pick bites, and the fused seam gives with a shriek.', 'inside, untouched since the city fell: stores packed in wax and oiled cloth.'],
+      { iron: rnd(15, 25), leather: rnd(8, 12), ration: rnd(6, 10) });
   }
   if (t === 'M') {
     markUsed(key);

@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>A Light Below</title>
 <meta name="description" content="A slow, quiet text game about a lamp, a buried city, and the long way up.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;1,400&family=IM+Fell+English:ital@0;1&display=swap">
 <link rel="stylesheet" href="css/base.css">
 <link rel="stylesheet" href="css/effects.css">
 </head>
@@ -19,6 +22,7 @@
   </div>
 
   <div id="modal" hidden></div>
+  <div id="tooltip" role="tooltip" hidden></div>
   <div id="cut" hidden></div>
   <div id="black"></div>
   <div id="pausecard" data-a="pause">
@@ -26,7 +30,7 @@
     <p>press p or click to resume</p>
   </div>
 
-  <div id="devbar" hidden><span id="devspeed"></span><button class="link" data-a="testexit">exit &times;</button></div>
+  <div id="devbar" hidden><span id="devspeed"></span><button class="link" data-a="devexit">exit &times;</button></div>
   <div id="pwbox" hidden>
     <form class="card pair" id="pw" role="dialog" aria-modal="true" aria-labelledby="pwtitle">
       <h2 id="pwtitle">dev mode</h2>
@@ -45,7 +49,7 @@
     <button class="link" id="pause" data-a="pause" title="pause (p)">pause</button> ·
     <span id="speed"></span> ·
     <button class="link" data-a="restart">restart</button> ·
-    <span id="testing"></span> ·
+    <span id="devlink"></span> ·
     <span>inspired by <a href="https://github.com/doublespeakgames/adarkroom" target="_blank" rel="noopener">A Dark Room</a></span>
   </footer>
 
@@ -53,6 +57,7 @@
   <script src="js/state.js"></script>
   <script src="js/world.js"></script>
   <script src="js/scenes.js"></script>
+  <script src="js/dev.js"></script>
   <script src="js/ui.js"></script>
   <script src="js/main.js"></script>
 </body>
